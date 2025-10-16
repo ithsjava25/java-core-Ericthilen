@@ -145,13 +145,13 @@ class BasicTest {
                 assertThat(warehouse.getProducts()).hasSize(1);
 
                 // Act
-                warehouse.remove(milk.uuid());
+                warehouse.remove(milk.id());
 
                 // Assert
                 assertThat(warehouse.isEmpty())
                         .as("Warehouse should be empty after the only product is removed.")
                         .isTrue();
-                assertThat(warehouse.getProductById(milk.uuid()))
+                assertThat(warehouse.getProductById(milk.id()))
                         .as("The removed product should no longer be found.")
                         .isEmpty();
             }
