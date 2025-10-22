@@ -1,24 +1,21 @@
 package com.example;
 
-import java.util.stream.Collectors;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-
+import java.util.stream.Collectors;
 
 public class Warehouse {
     private static final Map<String, Warehouse> WAREHOUSES = new ConcurrentHashMap<>();
 
     private final String name;
-
-    private final Map<UUID, Product> products;
-
-    private final Set<UUID> changedProductIds;
+    private final Map<UUID, Product> inventory;
+    private final Set<UUID> changedItems;
 
     private Warehouse(String name) {
         this.name = name;
-        this.products = new ConcurrentHashMap<>();
-        this.changedProductIds = Collections.newSetFromMap(new ConcurrentHashMap<>());
+        this.inventory = new ConcurrentHashMap<>();
+        this.changedItems = Collections.newSetFromMap(new ConcurrentHashMap<>());
     }
 
     public static Warehouse getInstance(String name) {
@@ -32,76 +29,73 @@ public class Warehouse {
         if (product == null) {
             throw new IllegalArgumentException("Product cannot be null.");
         }
-        if (products.putIfAbsent(product.id(), product) == null) {
-            changedProductIds.add(product.id());
+        if (inventory.putIfAbsent(product.id(), product) == null) {
+            changedItems.add(product.id());
         }
-
     }
 
     public List<Product> getProducts() {
-        return products.values().stream().toList();
+        return inventory.values().stream().toList();
     }
 
     public Optional<Product> getProductById(UUID id) {
         if (id == null) {
             return Optional.empty();
         }
-        return Optional.ofNullable(products.get(id));
+        return Optional.ofNullable(inventory.get(id));
     }
 
     public Map<Category, List<Product>> getProductsGroupedByCategories() {
-        return products.values()
+        return inventory.values()
                 .stream()
                 .collect(Collectors.groupingBy(Product::category));
-
     }
 
     public void clearProducts() {
         Warehouse warehouse = WAREHOUSES.get(name);
         if (warehouse != null) {
-            warehouse.products.clear();
-            warehouse.changedProductIds.clear();
+            warehouse.inventory.clear();
+            warehouse.changedItems.clear();
         }
     }
 
     public boolean isEmpty() {
-        return products.isEmpty();
+        return inventory.isEmpty();
     }
 
     public void updateProductPrice(UUID id, BigDecimal newPrice) {
-        Product product = getProductById(id).
-                orElseThrow(() -> new NoSuchElementException("Product not found with id: " + id));
+        Product product = getProductById(id)
+                .orElseThrow(() -> new NoSuchElementException("Product not found with id: " + id));
         product.setPrice(newPrice);
-        changedProductIds.add(id);
+        changedItems.add(id);
     }
 
     public List<Product> getChangedProducts() {
-        return changedProductIds.stream()
-                .filter(products::containsKey)
-                .map(products::get)
+        return changedItems.stream()
+                .filter(inventory::containsKey)
+                .map(inventory::get)
                 .toList();
     }
 
     public List<Perishable> expiredProducts() {
-        return products.values().stream()
+        return inventory.values().stream()
                 .filter(p -> p instanceof Perishable)
-                .filter(p -> ((Perishable) p).isExpired())
                 .map(p -> (Perishable) p)
+                .filter(Perishable::isExpired)
                 .collect(Collectors.toList());
-
     }
 
     public List<Shippable> shippableProducts() {
-        return products.values().stream()
+        return inventory.values().stream()
                 .filter(p -> p instanceof Shippable)
                 .map(p -> (Shippable) p)
-                .collect(Collectors.toList());
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
     public void remove(UUID id) {
         if (id != null) {
-            products.remove(id);
-            changedProductIds.remove(id);
+            inventory.remove(id);
+            changedItems.remove(id);
         }
     }
 }
